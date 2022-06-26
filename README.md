@@ -6,3 +6,4 @@ Master List of Algos to be integrated:
 4. Diagonalization, power method and Rayleigh quotient
 5. QR
 6. SVD
+7. LPP - graph and simplex
