@@ -7,3 +7,8 @@ Master List of Algos to be integrated:
 5. QR
 6. SVD
 7. LPP - graph and simplex
+
+
+Steps for integration with Factory:
+1. Extend the class LinearSystemsBase and implement the contract.
+2. Add the system_type from your class to VALID_SYSTEM_TYPES list.
