@@ -1,10 +1,12 @@
 import math
-
+from IPython.display import display
 import pandas as pd
 import numpy as np
-from sympy import Matrix
+from sympy import *
+from sympy.physics.quantum import Bra, Ket
 from abc import ABC, abstractmethod
 
+init_printing()
 VALID_SYSTEM_TYPES = [
     'gauss_elimination',
     'gauss_elimination_rounding',
@@ -13,7 +15,14 @@ VALID_SYSTEM_TYPES = [
     'basis_finder',
     'gauss_seidel',
     'gauss_jacobi',
-    'rayleigh_quotient'
+    'power_method',
+    'rayleigh_quotient',
+    'diagonalization',
+    'gram_schmidt_orthonormalization',
+    'qr_factorization',
+    'lu_dolittle',
+    'lu_crout',
+    'svd'
 ]
 
 
@@ -93,10 +102,384 @@ class LinearSystemsBase(ABC):
     def solve(self, **kwargs):
         pass
 
+class SingularValueDecomposition(LinearSystemsBase):
+    def _get_system_type(self):
+        return 'svd'
+
+    def solve(self, **kwargs):
+        self.a = np.array(kwargs.get('a'))
+        self.rounding_digit = np.array(kwargs.get('rounding_digit'))
+        return self.svd()
+
+    def svd(self):
+        A = np.array(self.a)
+        print('Input Matrix:')
+        A_sym = MatrixSymbol('A', A.shape[0], A.shape[1])
+        U_sym = MatrixSymbol('U', A.shape[0], A.shape[0])
+        sigma_sym = MatrixSymbol('\u03A3', A.shape[0], A.shape[1])
+        V_sym = MatrixSymbol('V', A.shape[1], A.shape[1])
+        display(Eq(A_sym, Matrix(A)))
+        print('\nConstructing Singular Value Decomposition of A\n')
+        display(Eq(A_sym, Mul(Mul(U_sym,sigma_sym),Transpose(V_sym))))
+        print('\nStep-1: Find eigenvalues of A\u1D40A')
+        A_m = Matrix(A)
+        A_T_A = Matrix(A.T @ A)
+        display(Eq(Mul(Transpose(A_sym),A_sym), Mul(Transpose(A_m),A_m)))
+        display(Eq(Mul(Transpose(A_sym), A_sym), A_T_A))
+        # e, v = np.linalg.eig(A.T@A)
+        # print(np.linalg.eig(A.T@A))
+        #e = LinearSystemsHelper.round_to_n(e, self.rounding_digit)
+        #v = LinearSystemsHelper.round_to_n(v, self.rounding_digit)
+        #I = eye(2)
+
+        # x1, x2, Lambda = symbols('x1 x2 Lambda')
+        # equation = Eq(det(Lambda * I - A_m), 0)
+        #print([N(element, 4) for element in D])
+        # D = solve(equation)
+        # display(D)
+        #e = A_T_A.eigenvals()
+        #display(e)
+        eig_val = []
+        eig_vec = []
+
+        print('\nEigenvalues of A\u1D40A are')
+
+        v = A_T_A.eigenvects()
+        v.sort(key=lambda x: x[0], reverse=True)
+        for element in v:
+            eig_val.append(element[0])
+            eig_vec.append(list(element[2][0]/element[2][0].norm()))
+
+        for i, x in enumerate(eig_val):
+            display(Eq(Symbol(f'\u03BB{i+1}'), x))
+
+        print('\nStep-2: Setup V ')
+        print('\nV is the Matrix with columns as Eigenvectors of A\u1D40A ')
+
+        V_m = Matrix(np.array(eig_vec).T)
+
+        # display(v)
+        # display(V_m)
+
+        if  V_m.rows < A.shape[1] or V_m.cols < A.shape[1]:
+
+            print(f'\nWe only have {V_m.cols} vectors\n')
+            print(f'\nSo to find other {A.shape[1]-V_m.cols} vectors we need to construct orthogonal vectors to \n')
+            display(V_m)
+            print('\nusing orthogonality conditions\n')
+
+            #if V_m.cols == 1:
+            eig_vec_new = [eig_vec[0],eig_vec[0]]
+            V_m = Matrix(np.array(eig_vec_new))
+            #display(V_m)
+            vectors = V_m.nullspace()
+            print('Orthogonal vectors to v are')
+            display(vectors)
+            eig_vec = [eig_vec[0]]
+            for vector in vectors:
+                #display(vector)
+                eig_vec.append(vector)
+            #display(eig_vec)
+            eig_vec = [list(x) for x in eig_vec]
+            # display(u)
+            print('To construct V, we need to find orthonormal set of vectors')
+            eig_vec = GramSchmidtOrthonormalization().solve(a=eig_vec)[2]
+            #display(eig_vec)
+            V_m = Matrix(np.array([list(x) for x in eig_vec]).T)
+
+
+        #display([list(x) for x in eig_vec])
+        display(Eq(V_sym,V_m))
+
+        print('\nStep-3: Setup  \u03A3')
+
+        print('\nThe square roots of Eigenvalues of A\u1D40A are singular values\n')
+
+        eig_val = [sqrt(x) for x in eig_val]
+
+        for i, x in enumerate(eig_val):
+            display(Eq(Symbol(f'\u03C3{i + 1}'), x))
+
+        print('\nDiscarding the 0 singular values\n')
+
+        print('\n\u03A3 is the matrix of same shape as A conatining non zero singular values along diagonal\n')
+
+        eig_val = [x for x in eig_val if x !=0]
+
+        sigma = np.diag(eig_val)
+        # col = np.array([[0],
+        #                 [0]])
+        # row = np.array([])
+        while sigma.shape[0] < A.shape[0]:
+            row = np.zeros([1,sigma.shape[1]])
+            sigma = np.append(sigma, row, axis=0)
+
+        while sigma.shape[1] < A.shape[1]:
+            col = np.zeros([sigma.shape[0],1])
+            sigma = np.append(sigma, col, axis=1)
+
+        #print(eig_val)
+        #display(Matrix(sigma))
+
+
+
+        # for i in range(len(sigma)):
+        #     sigma[i,i] = eig_val[i]
+
+        sigma_m = Matrix(sigma)
+
+        display(Eq(sigma_sym, sigma_m))
+
+        print('\nStep-4: Cunstruct U')
+
+        u = []
+
+        count =0
+
+        for i in range(len(A)):
+            count = i + 1
+            if i == len(eig_val) or eig_val[i] ==0:
+                break
+
+            display(Eq(Symbol(f'u{i+1}'), Mul(Mul(Pow(Symbol(f'\u03C3{i + 1}'), Integer(-1)),Symbol('A')),Symbol(f'v{i+1}'))))
+            u_i = A_m*Matrix(eig_vec[i])/eig_val[i]
+            display(Eq(MatrixSymbol('', A.shape[0],1),u_i))
+            u.append(u_i)
+
+        if len(u) < len(A):
+            if count > 0:
+                print(f'\nEigenvalue {count} is zero.\n')
+            print(f'\nSo to find other {len(A)-len(u)} vectors we need to construct orthogonal vectors to \n')
+            display(u)
+            print('\nusing orthogonality conditions\n')
+            U_m = Matrix(np.array([list(x) for x in u]))
+
+            if len(u) == 1:
+                u_new = u*2
+                U_m = Matrix(np.array([list(x) for x in u_new]))
+                #display(U_m)
+            vectors = U_m.nullspace()
+
+            print('Orthogonal vectors to u are')
+            for vector in vectors:
+                display(vector)
+                u.append(vector)
+            #vectors = Matrix([list(x) for x in vectors])
+            u = [list(x) for x in u]
+            #display(u)
+            print('To construct U, we need to find orthonormal set of vectors')
+            u = GramSchmidtOrthonormalization().solve(a=u)[2]
+            #u = [list(x) for x in u]
+
+
+
+        U_m = Matrix(np.array([list(x) for x in u]).T)
+
+        display(Eq(U_sym,U_m))
+
+        print('\nSingular Value decomposition of A is\n')
+        display(Eq(A_sym, MatMul(MatMul(U_m, sigma_m), Transpose(V_m))))
+
+
+class QRFactorization(LinearSystemsBase):
+    def _get_system_type(self):
+        return 'qr_factorization'
+
+    def solve(self, **kwargs):
+        self.a = np.array(kwargs.get('a'))
+        return self.qr()
+
+    def qr(self):
+        A = np.array((self.a))
+        print('Input Matrix:')
+        A_sym = MatrixSymbol('A', A.shape[0], A.shape[1])
+        Q_sym = MatrixSymbol('Q', A.shape[0], A.shape[1])
+        R_sym = MatrixSymbol('R', A.shape[1], A.shape[1])
+        I_sym = MatrixSymbol('I', A.shape[1], A.shape[1])
+        display(Eq(A_sym, Matrix(A)))
+
+        if np.linalg.matrix_rank(A) < A.shape[1]:
+            print('Column vectors of A are not linearly independent')
+            print('\nQR Factorization cannot be applied. Exiting')
+            return
+
+        print('\nTo find QR factorization of A we need to find\n')
+        display(Eq(A_sym, MatMul(Q_sym, R_sym)))
+        print('\nWhere Q is the matrix having orthonormal column vectors found by applying Gram Schmidt Orthonormalization to the columns of A ')
+        print('\nStep-1: Find Q using Gram Schmidt Orthonormalization\n')
+        Q = GramSchmidtOrthonormalization().solve(a=A.T)[2]
+        Q = [list(x) for x in Q]
+        Q = Matrix(np.array(Q).T)
+        display(Eq(Q_sym, Q))
+        print('\nStep-1: Use Q to get R\n')
+        display(Eq(A_sym, MatMul(Q_sym, R_sym)))
+        display(Eq(MatMul(Transpose(Q_sym),A_sym), MatMul(MatMul(Transpose(Q_sym),Q_sym), R_sym)))
+        display(Eq(MatMul(Transpose(Q_sym), A_sym), MatMul(I_sym, R_sym)))
+        display(Eq(R_sym,MatMul(Transpose(Q_sym), A_sym)))
+        display(Eq(R_sym, MatMul(Transpose(Q), Matrix(A))))
+        R = Transpose(Q) * Matrix(A)
+        display(Eq(R_sym, R))
+
+
+class GramSchmidtOrthonormalization(LinearSystemsBase):
+    def _get_system_type(self):
+        return 'gram_schmidt_orthonormalization'
+
+    def solve(self, **kwargs):
+        self.a = np.array(kwargs.get('a'))
+        return self.gram_schmidt()
+
+    def gram_schmidt(self):
+        A = self.a
+        Q = np.array(self.a).astype(float)
+
+        print(f'Input vectors: ')
+        for i in range(len(A)):
+            display(Eq(MatrixSymbol(f'a{i + 1}', len(A[i]), 1), Matrix(A[i])))
+
+        print('\n\nInitiating Gram Schmidt Orthonormalization to find Orthonornal vectors q\n\n')
+        gs = GramSchmidt([Matrix(x) for x in A])
+        gs_ortho = GramSchmidt([Matrix(x) for x in A], True)
+
+        for i in range(len(A)):
+            expr = Symbol(f'a{i + 1}')
+            expr_num = Matrix(Q[i])
+            for j in range(i):
+                # Performing successive orthogonalization
+                Q[i] -= np.dot(Q[j], Q[i]) / np.linalg.norm(Q[j]) * Q[j]
+                expr += Mul(Mul(Integer(-1), Bra(f'a{i + 1}') * Ket(f'q{j + 1}')),
+                            Pow(Bra(f'q{j + 1}') * Ket(f'q{j + 1}'),
+                                Integer(-1))) * Symbol(f'q{j + 1}')
+
+            expr = Eq(Symbol(f'q{i + 1}'), expr)
+
+            # display(LatexPrinter(dict(order='none'))._print_Add(expr))
+            # print(expr)
+
+            display(expr)
+            display(Eq(MatrixSymbol(f'q{i + 1}', Q[i].shape[0], 1), gs[i]))
+            display(Eq(MatrixSymbol(f'q{i + 1}', Q[i].shape[0], 1), Matrix(Q[i])))
+
+            print('Normalizing the vector')
+            Q[i] = Q[i] / np.linalg.norm(Q[i])
+            display(Eq(MatrixSymbol(f'q{i + 1}', Q[i].shape[0], 1), gs_ortho[i]))
+            display(Eq(MatrixSymbol(f'q{i + 1}', Q[i].shape[0], 1), Matrix(Q[i])))
+
+        print('\n\nThe orthonormal vectors are:\n')
+
+        for i in range(len(Q)):
+            display(Eq(MatrixSymbol(f'q{i + 1}', Q[i].shape[0], 1), gs_ortho[i]))
+
+        return Q, gs, gs_ortho
+
+class Diagonalization(LinearSystemsBase):
+    def _get_system_type(self):
+        return 'diagonalization'
+
+    def solve(self, **kwargs):
+        self.a = np.array(kwargs.get('a'))
+        print('Input matrix A:\n')
+        display(Matrix(self.a))
+        e,v = np.linalg.eig(self.a)
+        v = v.T
+        print(f'\nEigenvalues of A:\n{e}')
+        print(f'\nEigenvectors of A:\n')
+
+        display(Matrix(v[0]),Matrix(v[1]),Matrix(v[2]))
+        shape = self.a.shape[0]
+        Am = MatrixSymbol('A', shape, shape)
+        Dm = MatrixSymbol('D', shape, shape)
+        Pm = MatrixSymbol('P', shape, shape)
+        print('\nWe can write A in the form:\n')
+        display(Eq(Am, MatMul(Pm,Dm,Inverse(Pm))))
+        print('Where, D is the diagonal matrix containing eigenvalues:\n')
+        display(Eq(Dm,Matrix(np.diag(e))))
+        print('And P is the matrix containing eigenvectors as columns:\n')
+        display(Eq(Pm, Matrix(v)))
+
+
+
+class PowerMethod(LinearSystemsBase):
+    def _get_system_type(self):
+        return 'power_method'
+
+    def solve(self, **kwargs):
+        print('\nPerforming Power Method iterations to find dominant eigenvalue\n')
+        self._A = kwargs.get('A')
+        self.size = kwargs.get('size') if self._A is None else self._A.shape
+        self.rounding_digit = kwargs.get('rounding_digit') if kwargs.get('rounding_digit') is not None else 10
+        if self._A is None:
+            if kwargs.get('randomize'):
+                self._A, self._b = LinearSystemsHelper.generate_random_matrix(self.size, kwargs.get('diag_dom'))
+            else:
+                raise ValueError('Please provide input matrix A or set randomize flag to True')
+
+        self._A = np.array([LinearSystemsHelper.round_to_n(x, self.rounding_digit) for x in self._A])
+
+        self.x_init = kwargs.get('x_init') if kwargs.get('x_init') is not None else np.ones(self._A.shape[1])
+        self.n_iterations = kwargs.get('n_iterations') if kwargs.get('n_iterations') is not None else 10
+        self.print_iterations = kwargs.get('print_iterations')
+        self.plot_iterations = kwargs.get('plot_iterations')
+
+        self.tolerance = kwargs.get('tolerance') if kwargs.get('tolerance') is not None else 0.0001
+
+        self.perform_power_methodIterations()
+
+    def perform_power_methodIterations(self):
+        print(f'\nInput Matrix \'A\':\n{self._A}\n')
+        print(f'\nInitial value x: {self.x_init}')
+        x_norm = []
+        x = LinearSystemsHelper.round_to_n(np.array(self.x_init), self.rounding_digit)
+        # epsilon = 0.001
+        converged = False
+        eig = 0
+        eig_new = 0
+        #q=0
+        for i in range(self.n_iterations):
+            print(f'\n\nIteration: {i+1}\n')
+            print(f'x = {x}\n')
+            y = LinearSystemsHelper.round_to_n(self._A@x, self.rounding_digit)
+            print(f'y = Ax = {y}\n')
+
+            y_norm = LinearSystemsHelper.round_to_n(y/max(y), self.rounding_digit)
+            print(f'y_norm = y/max(y) = {y_norm}')
+
+            eig = eig_new
+            eig_new = max(y)
+            print(f'\n\u03BB_old = {eig}')
+            print(f'\u03BB_new = max(y) = {eig_new}')
+
+            x = y_norm
+            delta = LinearSystemsHelper.round_to_n(np.abs(eig_new-eig), self.rounding_digit)
+
+            print(f'\ndelta = |\u03BB_new - \u03BB_old| =  {delta}\n')
+
+
+            if self.plot_iterations:
+                x_norm.append(delta)
+
+            if delta < self.tolerance:
+                converged = True
+                print(f'Since delta < {self.tolerance} (tolerance)')
+                print('Converged!')
+                print(f'\nDominant Eigenvalue estimate using Power Method: {eig_new}')
+                break
+            else:
+                print(f'delta > {self.tolerance} (tolerance)')
+
+        if not converged:
+            print(f'Not converged after {self.n_iterations} iterations')
+
+        if self.plot_iterations:
+            plt.plot(x_norm)
+            plt.xlabel('Iterations')
+            plt.ylabel('Difference')
+
 
 class RayleighQuotient(LinearSystemsBase):
     def _get_system_type(self):
         return 'rayleigh_quotient'
+
 
 
     def solve(self, **kwargs):
@@ -153,7 +536,7 @@ class RayleighQuotient(LinearSystemsBase):
             x = y_norm
             delta = LinearSystemsHelper.round_to_n(np.sqrt(np.abs(m_2/m_0 - q**2)), self.rounding_digit)
 
-            print(f'delta = sqrt(m\u2082/m\u2080 - q\u00B2) =  {delta}')
+            print(f'delta = sqrt(m\u2082/m\u2080 - q\u00B2) =  {delta}  (Delta is useful only for symmetric matrix)')
 
 
             if self.plot_iterations:
@@ -162,7 +545,7 @@ class RayleighQuotient(LinearSystemsBase):
             if delta < self.tolerance:
                 converged = True
                 print('Converged!')
-                print(f'\nEigenvalue estimate using Rayleigh Quotient: {q}')
+                print(f'\nDominant Eigenvalue estimate using Rayleigh Quotient: {q}')
                 break
 
         if not converged:
@@ -210,6 +593,7 @@ class GaussSeidel(LinearSystemsBase):
             if b is not None:
                 b = b.astype(float)
             print(f'Input Matrix \'A\':\n{A}\n')
+            pprint(Matrix(A))
             LinearSystemsHelper.check_for_diagonal_dominance(A)
             print('\nReducing diagonal elements to 1\n')
             for i in range(0, A.shape[0]):
@@ -660,6 +1044,182 @@ class GaussEliminationRounding(LinearSystemsBase):
         #     print('Given system of equations have infinitely many solutions')
 
 
+class LUDolittle(LinearSystemsBase):
+    def _get_system_type(self):
+        return 'lu_dolittle'
+
+    def solve(self, **kwargs):
+        print('Starting Dolittle method for LU decomposition')
+        self._a = kwargs.get('a')
+        self._b = kwargs.get('b')
+        self._pivoting = kwargs.get('pivoting')
+        self._rounding_digit = kwargs.get('rounding_digit') if kwargs.get('rounding_digit') is not None else 4
+        self.get_LU()
+        self.substitution()
+
+    def get_LU(self):
+        M = Matrix(self._a)
+        shape = M.shape[0]
+        print('Input Matrix A:\n')
+        display(M)
+        print('\nA = LU, where\n')
+        U = MatrixSymbol('U', shape, shape)
+        L = MatrixSymbol('L', shape, shape)
+        U_ex = MatrixSymbol('u', shape, shape)
+        L_ex = MatrixSymbol('l', shape, shape)
+        L_ex = L_ex.as_explicit() - L_ex.as_explicit().upper_triangular() + Matrix(np.eye(shape).astype(int))
+        U_ex = U_ex.as_explicit().upper_triangular()
+
+        display(Eq(L, L_ex))
+        print('\nand\n')
+        display(Eq(U, U_ex))
+
+        display(Eq(MatMul(L, U), MatMul(L_ex, U_ex)))
+        print()
+        display(Eq(MatMul(L, U), MatMul(L_ex, U_ex).expand()))
+        print('\nOn equating this with A, we get')
+        mat_nul = MatMul(L_ex, U_ex).expand()
+
+        display(Eq(M, mat_nul))
+        for i in range(M.shape[0]):
+            for j in range(M.shape[1]):
+                display(Eq(mat_nul[i, j], M[i, j]))
+        print('\nSolving the above equations, we get\n')
+        L_num, U_num, _ = M.LUdecomposition()
+
+        display(Eq(L,L_num))
+        print('\nand\n')
+        display(Eq(U,U_num))
+        self.L = L_num
+        self.U = U_num
+
+    def substitution(self):
+        print('\nA = LU, Thus, the system Ax = b is')
+        print('\nLUx = b')
+        print('\nLet Ux = y, then')
+        print('\nLy = b')
+        print('\nStep-1: Solve Ly = b, to find y')
+        shape = self.L.shape[0]
+
+        b = Matrix(self._b)
+        y = MatrixSymbol('y', shape, 1)
+        display(Eq(MatMul(self.L,y), Matrix(self._b)))
+        display(Eq(MatMul(self.L, y.as_explicit()), Matrix(self._b)))
+
+        y_num = LinearSystemsHelper.round_to_n(np.linalg.solve(np.array(self.L).astype(float), np.array(self._b).astype(float)),self._rounding_digit)
+        print('By Applying forward substitution, we get')
+        display(Eq(y,Matrix(y_num)))
+
+        print('Step-2: Now solve Ux = y, to find x')
+        x = MatrixSymbol('x', shape, 1)
+        display(Eq(MatMul(self.U, x), Matrix(y_num)))
+        display(Eq(MatMul(self.U, x.as_explicit()), Matrix(y_num)))
+
+        x_num = LinearSystemsHelper.round_to_n(np.linalg.solve(np.array(self.U).astype(float), np.array(y_num).astype(float)), self._rounding_digit)
+        print('By Applying back substitution, we get')
+        display(Eq(x, Matrix(x_num)))
+
+
+class LUCrout(LinearSystemsBase):
+    def _get_system_type(self):
+        return 'lu_crout'
+
+    def solve(self, **kwargs):
+        print('Starting Dolittle method for LU decomposition')
+        self._a = kwargs.get('a')
+        self._b = kwargs.get('b')
+        self._pivoting = kwargs.get('pivoting')
+        self._rounding_digit = kwargs.get('rounding_digit') if kwargs.get('rounding_digit') is not None else 4
+        self.get_LU()
+        self.substitution()
+
+    def get_LU(self):
+        M = Matrix(self._a)
+        shape = M.shape[0]
+        print('Input Matrix A:\n')
+        display(M)
+        print('\nA = LU, where\n')
+        U = MatrixSymbol('U', shape, shape)
+        L = MatrixSymbol('L', shape, shape)
+        U_ex = MatrixSymbol('u', shape, shape)
+        L_ex = MatrixSymbol('l', shape, shape)
+        U_ex = U_ex.as_explicit() - U_ex.as_explicit().lower_triangular() + Matrix(np.eye(shape).astype(int))
+        L_ex = L_ex.as_explicit().lower_triangular()
+
+        display(Eq(L, L_ex))
+        print('\nand\n')
+        display(Eq(U, U_ex))
+
+        display(Eq(MatMul(L, U), MatMul(L_ex, U_ex)))
+        print()
+        display(Eq(MatMul(L, U), MatMul(L_ex, U_ex).expand()))
+        print('\nOn equating this with A, we get')
+        mat_nul = MatMul(L_ex, U_ex).expand()
+
+        display(Eq(M, mat_nul))
+        for i in range(M.shape[0]):
+            for j in range(M.shape[1]):
+                display(Eq(mat_nul[i, j], M[i, j]))
+        print('\nSolving the above equations, we get\n')
+        L_num, U_num = self.crout()
+
+        display(Eq(L, Matrix(L_num)))
+        print('\nand\n')
+        display(Eq(U, Matrix(U_num)))
+        self.L = Matrix(L_num)
+        self.U = Matrix(U_num)
+
+    def crout(self):
+
+        A = np.array(self._a)
+
+        shape = A.shape[0]
+
+        L = np.zeros_like(A)
+        U = np.zeros_like(A)
+
+        for k in range(0, shape):
+            U[k, k] = 1
+
+            for j in range(k, shape):
+                sum0 = sum([L[j, s] * U[s, k] for s in range(0, k)])
+                L[j, k] = A[j, k] - sum0
+
+            for j in range(k + 1, shape):
+                sum1 = sum([L[k, s] * U[s, j] for s in range(0, k)])
+                U[k, j] = (A[k, j] - sum1) / L[k, k]
+
+        return L, U
+
+    def substitution(self):
+        print('\nA = LU, Thus, the system Ax = b is')
+        print('\nLUx = b')
+        print('\nLet Ux = y, then')
+        print('\nLy = b')
+        print('\nStep-1: Solve Ly = b, to find y')
+        shape = self.L.shape[0]
+
+        b = Matrix(self._b)
+        y = MatrixSymbol('y', shape, 1)
+        display(Eq(MatMul(self.L, y), Matrix(self._b)))
+        display(Eq(MatMul(self.L, y.as_explicit()), Matrix(self._b)))
+
+        y_num = LinearSystemsHelper.round_to_n(
+            np.linalg.solve(np.array(self.L).astype(float), np.array(self._b).astype(float)), self._rounding_digit)
+        print('By Applying forward substitution, we get')
+        display(Eq(y, Matrix(y_num)))
+
+        print('Step-2: Now solve Ux = y, to find x')
+        x = MatrixSymbol('x', shape, 1)
+        display(Eq(MatMul(self.U, x), Matrix(y_num)))
+        display(Eq(MatMul(self.U, x.as_explicit()), Matrix(y_num)))
+
+        x_num = LinearSystemsHelper.round_to_n(
+            np.linalg.solve(np.array(self.U).astype(float), np.array(y_num).astype(float)), self._rounding_digit)
+        print('By Applying back substitution, we get')
+        display(Eq(x, Matrix(x_num)))
+
+
 if __name__ == '__main__':
     # a = np.array([[3,2,1], [2,1,1], [6,2,4] ])
     # b =np.array([[3,0,6]])
@@ -667,21 +1227,21 @@ if __name__ == '__main__':
     # b = np.array([[2,3]])
     # a = np.array([[0.0004, 1.402], [0.4003, -1.502]])
     # b = np.array([[1.406, 2.501]])
-    a = np.array([[0,2,0,1],[2,2,3,2],[4,-3,0,1], [6,1,-6,-5]])
-    b= np.array([[0,-2,-7,6]])
+    # a = np.array([[0,2,0,1],[2,2,3,2],[4,-3,0,1], [6,1,-6,-5]])
+    # b= np.array([[0,-2,-7,6]])
     #a = np.array([[4.5, 3.55],[4.5,2.8]])
     #a = np.array([[2,-1,1],[1,0,1],[3,-1,4]])
     lsf = LinearSystemsFactory()
     #lsf.get_linear_system(system_type='gauss_elimination').solve(a=a, b = b, pivoting = True)
 
-    #lsf.get_linear_system(system_type='gauss_elimination_rounding').solve(a=a, b=b, pivoting = True,rounding_digit = 3)
+    # lsf.get_linear_system(system_type='gauss_elimination_rounding').solve(a=a, b=b, pivoting = True,rounding_digit = 4)
 
     #lsf.get_linear_system(system_type='condition_number').solve(a=a, b=b, pivoting=True, rounding_digit=4)
 
     # a = np.array([[3,4,0,2],[2,-1,3,7],[1,16,-12,-22]])
     # lsf.get_linear_system(system_type='linear_independence_checker').solve(v1=[0,1,1],v2=[1,1,1], v3=[0,0,1])
 
-    # a = np.array([[1, 0, 1, 3], [2, 3, 4, 7], [-1, -3, -3, -4]])
+    # a = np.array([[1,2,-2,1], [3,6,-5,4], [1,2,0,3]])
     # lsf.get_linear_system(system_type='basis_finder').solve(a=a, pivoting = False, rounding_digit=10)
 
     #a = np.array([[1, 0, 1, 3], [2, 3, 4, 7], [-1, -3, -3, -4]])
@@ -693,13 +1253,30 @@ if __name__ == '__main__':
     # lsf.get_linear_system(system_type='gauss_seidel').solve(A = A, b = b, size=(4, 4), diag_dom=True, randomize=True,
     #                                                         rounding_digit=4,
     #                                                         print_iterations=True, n_iterations=100, tolerance=0.000001)
+
+    # a = np.array([[0,2,0,1],[2,2,3,2],[4,-3,0,1], [6,1,-6,-5]])
+    # b = [1,1,1,1]
     #
-    # lsf.get_linear_system(system_type='gauss_jacobi').solve(A = A, b = b, size=(4, 4), diag_dom=True, randomize=True,
-    #                                                         rounding_digit=4,
+    # lsf.get_linear_system(system_type='lu_dolittle').solve(a = a, b = b)
+
+    # A = np.array([[4, 0.24, -0.07], [0.09, 3, -0.15], [0.04, 0.08, 4]])
+    # b = np.array([8,9,20])
+
+    # A = np.array([[-4,5], [1,2]])
+    # b = np.array([1,3])
+    #
+    #
+    # lsf.get_linear_system(system_type='gauss_seidel').solve(A = A, b = b, size=(4, 4), diag_dom=True, randomize=True,
+    #                                                         rounding_digit=8,
     #                                                         print_iterations=True, n_iterations=100, tolerance=0.000001)
 
     A = np.array([[11, 5, 1], [5, 8, 2], [1, 3, 5]])
+    b = np.array([1, 3, 3])
 
-    lsf.get_linear_system(system_type='rayleigh_quotient').solve(A=A, b=b, size=(4, 4), diag_dom=True, randomize=True,
-                                                            rounding_digit=8,
-                                                            print_iterations=True, n_iterations=100, tolerance=0.001)
+    lsf.get_linear_system(system_type='rayleigh_quotient').solve(A=A,  size=(4, 4), diag_dom=True, randomize=True,
+                                                            rounding_digit=10,
+                                                            print_iterations=True, n_iterations=100, tolerance=0.00015)
+
+    lsf.get_linear_system(system_type='power_method').solve(A=A, size=(4, 4), diag_dom=True, randomize=True,
+                                                            rounding_digit=10,
+                                                            print_iterations=True, n_iterations=100, tolerance=0.00015)
