@@ -613,9 +613,9 @@ class GaussSeidel(LinearSystemsBase):
             self.iteration_matrix = np.array([LinearSystemsHelper.round_to_n(x, self.rounding_digit) for x in self.iteration_matrix ])
             print(f'\nIteration Matrix (I+L)\u207B\u00B9U: \n{self.iteration_matrix}')
             # print(np.linalg.inv(I+L)@U)
-            self.norm_one = np.linalg.norm(self.iteration_matrix, 1)
-            self.norm_inf = np.linalg.norm(self.iteration_matrix, np.inf)
-            self.norm_fro = np.linalg.norm(self.iteration_matrix, 'fro')
+            self.norm_one = LinearSystemsHelper.round_to_n(np.linalg.norm(self.iteration_matrix, 1), self.rounding_digit)
+            self.norm_inf = LinearSystemsHelper.round_to_n(np.linalg.norm(self.iteration_matrix, np.inf), self.rounding_digit)
+            self.norm_fro = LinearSystemsHelper.round_to_n(np.linalg.norm(self.iteration_matrix, 'fro'), self.rounding_digit)
             print(f'\nnorm_1 : {self.norm_one}\nnorm_inf : {self.norm_inf}\nnorm_frobenius : {self.norm_fro}\n')
             self._A = A
             self._b = b
@@ -709,9 +709,12 @@ class GaussJacobi(LinearSystemsBase):
             self.iteration_matrix = np.array([LinearSystemsHelper.round_to_n(x, self.rounding_digit) for x in self.iteration_matrix ])
             print(f'\nIteration Matrix (L+U): \n{self.iteration_matrix}')
             # print(np.linalg.inv(I+L)@U)
-            self.norm_one = np.linalg.norm(self.iteration_matrix, 1)
-            self.norm_inf = np.linalg.norm(self.iteration_matrix, np.inf)
-            self.norm_fro = np.linalg.norm(self.iteration_matrix, 'fro')
+            self.norm_one = LinearSystemsHelper.round_to_n(np.linalg.norm(self.iteration_matrix, 1),
+                                                           self.rounding_digit)
+            self.norm_inf = LinearSystemsHelper.round_to_n(np.linalg.norm(self.iteration_matrix, np.inf),
+                                                           self.rounding_digit)
+            self.norm_fro = LinearSystemsHelper.round_to_n(np.linalg.norm(self.iteration_matrix, 'fro'),
+                                                           self.rounding_digit)
             print(f'\nnorm_1 : {self.norm_one}\nnorm_inf : {self.norm_inf}\nnorm_frobenius : {self.norm_fro}\n')
             self._A = A
             self._b = b
@@ -1234,7 +1237,10 @@ if __name__ == '__main__':
     lsf = LinearSystemsFactory()
     #lsf.get_linear_system(system_type='gauss_elimination').solve(a=a, b = b, pivoting = True)
 
-    # lsf.get_linear_system(system_type='gauss_elimination_rounding').solve(a=a, b=b, pivoting = True,rounding_digit = 4)
+    # a = np.array([[4.03,2.19,1.23], [6.21, 3.61, -2.46], [7.92, 5.11, 3.29]])
+    # b = np.array([[-4.36, -7.16, 12.83]])
+    #
+    # lsf.get_linear_system(system_type='gauss_elimination_rounding').solve(a=a, b=b, pivoting = True,rounding_digit = 3)
 
     #lsf.get_linear_system(system_type='condition_number').solve(a=a, b=b, pivoting=True, rounding_digit=4)
 
@@ -1244,9 +1250,13 @@ if __name__ == '__main__':
     # a = np.array([[1,2,-2,1], [3,6,-5,4], [1,2,0,3]])
     # lsf.get_linear_system(system_type='basis_finder').solve(a=a, pivoting = False, rounding_digit=10)
 
-    #a = np.array([[1, 0, 1, 3], [2, 3, 4, 7], [-1, -3, -3, -4]])
+    # a = np.array([[7,1,-2,1], [1,8,1,0], [-2,1,5,-1],[1,0,-1,3]])
     # lsf.get_linear_system(system_type='gauss_seidel').solve(size = (4,4), diag_dom = True, randomize=True, rounding_digit= 4,
     #                                                         print_iterations = True, n_iterations =100, tolerance = 0.000001)
+    #
+    # lsf.get_linear_system(system_type='gauss_jacobi').solve(size=(4, 4), diag_dom=True, randomize=True,
+    #                                                         rounding_digit=4,
+    #                                                         print_iterations=True, n_iterations=100, tolerance=0.000001)
 
     # A, b = LinearSystemsHelper.generate_random_matrix((4,4), True)
     #
@@ -1262,21 +1272,37 @@ if __name__ == '__main__':
     # A = np.array([[4, 0.24, -0.07], [0.09, 3, -0.15], [0.04, 0.08, 4]])
     # b = np.array([8,9,20])
 
-    # A = np.array([[-4,5], [1,2]])
-    # b = np.array([1,3])
+    # A = np.array([[7,1,-2,1], [1,8,1,0], [-2,1,5,-1],[1,0,-1,3]])
+    # b = np.array([1,-1,1,-1])
     #
+    # lsf.get_linear_system(system_type='gauss_seidel').solve(A=A, b=b, size=(4, 4), diag_dom=True, randomize=True,
+    #                                                         rounding_digit=4,
+    #                                                         print_iterations=True, n_iterations=100, tolerance=0.000001)
     #
+    # lsf.get_linear_system(system_type='gauss_jacobi').solve(A = A, b = b, size=(4, 4), diag_dom=True, randomize=True,
+    #                                                         rounding_digit=4,
+    #                                                         print_iterations=True, n_iterations=100, tolerance=0.000001)
+
     # lsf.get_linear_system(system_type='gauss_seidel').solve(A = A, b = b, size=(4, 4), diag_dom=True, randomize=True,
     #                                                         rounding_digit=8,
     #                                                         print_iterations=True, n_iterations=100, tolerance=0.000001)
 
-    A = np.array([[11, 5, 1], [5, 8, 2], [1, 3, 5]])
-    b = np.array([1, 3, 3])
+    # A = np.array([[11, 5, 1], [5, 8, 2], [1, 3, 5]])
+    # b = np.array([1, 3, 3])
+    #
+    # lsf.get_linear_system(system_type='rayleigh_quotient').solve(A=A,  size=(4, 4), diag_dom=True, randomize=True,
+    #                                                         rounding_digit=10,
+    #                                                         print_iterations=True, n_iterations=100, tolerance=0.00015)
+    #
+    # lsf.get_linear_system(system_type='power_method').solve(A=A, size=(4, 4), diag_dom=True, randomize=True,
+    #                                                         rounding_digit=10,
+    #                                                         print_iterations=True, n_iterations=100, tolerance=0.00015)
 
-    lsf.get_linear_system(system_type='rayleigh_quotient').solve(A=A,  size=(4, 4), diag_dom=True, randomize=True,
-                                                            rounding_digit=10,
-                                                            print_iterations=True, n_iterations=100, tolerance=0.00015)
+    a = [[4, 11, 14], [8, 7, -2]]
+    lsf.get_linear_system(system_type='svd').solve(a=a, rounding_digit=4)
 
-    lsf.get_linear_system(system_type='power_method').solve(A=A, size=(4, 4), diag_dom=True, randomize=True,
-                                                            rounding_digit=10,
-                                                            print_iterations=True, n_iterations=100, tolerance=0.00015)
+    # a = [[1, 1, 1], [1, 1, 1]]
+    # lsf.get_linear_system(system_type='svd').solve(a=a, rounding_digit=4)
+    #
+    # a = [[1, 0, 0, ], [1, 1, 0], [1, 1, 1], [1, 1, 1]]
+    # lsf.get_linear_system(system_type='qr_factorization').solve(a=a)
