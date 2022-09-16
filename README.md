@@ -12,3 +12,8 @@ Master List of Algos to be integrated:
 Steps for integration with Factory:
 1. Extend the class LinearSystemsBase and implement the contract.
 2. Add the system_type from your class to VALID_SYSTEM_TYPES list.
+
+
+Other Algos:
+1. Steepest descent with constant and variable learning rates
+2. Finding maxima and minima using Hessian Matrix
